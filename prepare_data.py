@@ -1,15 +1,20 @@
 import pandas as pd
 from huggingface_hub import hf_hub_download
 import ssl
+import csv
+import sys
 
-# Mac 必備 SSL 繞過
+# 1. 繞過 SSL 驗證
 ssl._create_default_https_context = ssl._create_unverified_context
 
+# 2. 解決 C 引擎限制：手動調大欄位限制 (處理超大文本訊息)
+csv.field_size_limit(sys.maxsize)
+
 def main():
-    print("🚀 修正檔名並重新執行 Cofacts 資料處理...")
+    print("🚀 啟動全量資料處理模式（解析引擎已優化）...")
     
     try:
-        # 1. 下載 articles.csv.zip (注意多了 .zip)
+        # 下載 articles.csv.zip
         print("📥 下載 articles.csv.zip...")
         articles_zip_path = hf_hub_download(
             repo_id="Cofacts/line-msg-fact-check-tw",
@@ -18,7 +23,7 @@ def main():
             token=True
         )
         
-        # 2. 下載 article_replies.csv.zip
+        # 下載 article_replies.csv.zip
         print("📥 下載 article_replies.csv.zip...")
         rel_zip_path = hf_hub_download(
             repo_id="Cofacts/line-msg-fact-check-tw",
@@ -27,14 +32,27 @@ def main():
             token=True
         )
         
-        # 3. 讀取資料 (Pandas 的 compression='zip' 會自動處理)
-        print("📊 正在解壓縮並讀取資料...")
-        articles = pd.read_csv(articles_zip_path, compression='zip')
-        relations = pd.read_csv(rel_zip_path, compression='zip')
+        # 3. 讀取資料：改用 engine='python' 解決 Buffer Overflow
+        print("📊 正在讀取並解析資料（使用 Python 引擎處理大容量文字）...")
         
-        print(f"✅ 讀取成功！文章: {len(articles)} 筆, 關聯標籤: {len(relations)} 筆")
+        # articles 資料較大且內容複雜，需加強解析設定
+        articles = pd.read_csv(
+            articles_zip_path, 
+            compression='zip', 
+            engine='python',      # 核心修正：改用 Python 引擎
+            on_bad_lines='warn',   # 遇到壞掉的行先跳過並警告，不中斷程式
+            quoting=csv.QUOTE_MINIMAL 
+        )
+        
+        relations = pd.read_csv(
+            rel_zip_path, 
+            compression='zip',
+            engine='python'
+        )
+        
+        print(f"✅ 讀取成功！原始文章: {len(articles)} 筆, 關聯標籤: {len(relations)} 筆")
 
-        # 4. 過濾判定為 RUMOR 的資料
+        # 4. 過濾 RUMOR (假訊息)
         rumor_relations = relations[
             (relations['replyType'] == 'RUMOR') & 
             (relations['status'] == 'NORMAL')
@@ -48,21 +66,20 @@ def main():
             right_on='id'
         )
         
-        # 6. 去重並取前 100 筆
-        clean_rumor_1000 = merged_df[['text']].dropna().drop_duplicates().head(1000)
+        # 6. 去重並取全量
+        all_rumors = merged_df[['text']].dropna().drop_duplicates()
         
         # 7. 輸出結果
-        output_path = "clean_rumor_1000.csv"
-        clean_rumor_1000.to_csv(output_path, index=False, encoding='utf-8-sig')
+        output_path = "all_rumors.csv"
+        all_rumors.to_csv(output_path, index=False, encoding='utf-8-sig')
         
         print("-" * 30)
-        print(f"🎉 終於成功了！已產出: {output_path}")
-        print(f"🔍 預覽內容：\n{clean_rumor_1000['text'].iloc[0][:50]}...")
+        print(f"🎉 處理完成！共產出 {len(all_rumors)} 筆真實假訊息。")
+        print(f"📁 檔案已存至: {output_path}")
         print("-" * 30)
 
     except Exception as e:
-        print(f"❌ 依然發生錯誤: {e}")
-        print("\n💡 如果看到 404，請確認 HF 頁面上的檔名是否確實為 articles.csv.zip")
+        print(f"❌ 發生錯誤: {e}")
 
 if __name__ == "__main__":
     main()
