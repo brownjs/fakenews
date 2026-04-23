@@ -1,36 +1,52 @@
 import csv
 import chromadb
+import os
 
-# 用 PersistentClient 才會真的把資料存到本地資料夾
+# 1. 初始化資料庫連線
 client = chromadb.PersistentClient(path="./chroma_db")
 
-# 如果 collection 已存在，可以直接拿來用
+# 2. 定義 Collection 名稱
+# 建議維持原名或統一名稱為 "fakenews_collection"
 collection_name = "fake_news"
 
-# 先檢查目前有哪些 collections
-existing_collections = client.list_collections()
-existing_names = [c.name for c in existing_collections]
+# 3. 🛡️ 關鍵步驟：清理舊資料
+# 為了避免舊的 10 筆資料與新的 100 筆混在一起，我們先刪除舊的 collection 再重建
+try:
+    client.delete_collection(name=collection_name)
+    print(f"🗑️ 已成功刪除舊的 collection: {collection_name}")
+except Exception:
+    print(f"ℹ️ 尚未存在既有 collection，將直接建立新的一個。")
 
-if collection_name in existing_names:
-    collection = client.get_collection(name=collection_name)
-    print(f"已找到既有 collection：{collection_name}")
+# 4. 建立新的 Collection
+collection = client.create_collection(name=collection_name)
+print(f"🆕 已建立全新的 collection：{collection_name}")
+
+# 5. 讀取新的 100 筆 Cofacts 資料
+# 請確保檔名對應剛才產出的 clean_rumor_100.csv
+new_csv_file = "clean_rumor_100.csv"
+
+if not os.path.exists(new_csv_file):
+    print(f"❌ 錯誤：找不到 {new_csv_file}，請確認檔案已在資料夾中。")
 else:
-    collection = client.create_collection(name=collection_name)
-    print(f"已建立新 collection：{collection_name}")
+    with open(new_csv_file, "r", encoding="utf-8-sig") as file:
+        reader = csv.DictReader(file)
+        
+        documents = []
+        ids = []
+        
+        for i, row in enumerate(reader):
+            # 新的 CSV 主要是 'text' 欄位
+            text = row["text"]
+            if text.strip(): # 確保不加入空字串
+                documents.append(text)
+                ids.append(f"rumor_{i}")
 
-# 讀取 sample_data.csv
-with open("sample_data.csv", "r", encoding="utf-8") as file:
-    reader = csv.DictReader(file)
+        # 6. 批次寫入資料庫 (效率較高)
+        if documents:
+            collection.add(
+                documents=documents,
+                ids=ids
+            )
+            print(f"✅ 成功將 {len(documents)} 筆真實假訊息寫入向量資料庫！")
 
-    for i, row in enumerate(reader):
-        text = row["text"]
-        label = row["label"]
-
-        # 加入資料
-        collection.add(
-            documents=[text],
-            metadatas=[{"label": label}],
-            ids=[str(i)]
-        )
-
-print("✅ 10 筆資料已成功寫入 Chroma！")
+print("📍 資料庫重建完成，路徑：./chroma_db")
