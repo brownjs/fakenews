@@ -23,7 +23,7 @@ print(f"🆕 已建立全新的 collection：{collection_name}")
 
 # 5. 讀取新的 100 筆 Cofacts 資料
 # 請確保檔名對應剛才產出的 clean_rumor_100.csv
-new_csv_file = "clean_rumor_100.csv"
+new_csv_file = "clean_rumor_1000.csv"
 
 if not os.path.exists(new_csv_file):
     print(f"❌ 錯誤：找不到 {new_csv_file}，請確認檔案已在資料夾中。")

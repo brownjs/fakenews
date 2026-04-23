@@ -49,15 +49,15 @@ def main():
         )
         
         # 6. 去重並取前 100 筆
-        clean_rumor_100 = merged_df[['text']].dropna().drop_duplicates().head(100)
+        clean_rumor_1000 = merged_df[['text']].dropna().drop_duplicates().head(1000)
         
         # 7. 輸出結果
-        output_path = "clean_rumor_100.csv"
-        clean_rumor_100.to_csv(output_path, index=False, encoding='utf-8-sig')
+        output_path = "clean_rumor_1000.csv"
+        clean_rumor_1000.to_csv(output_path, index=False, encoding='utf-8-sig')
         
         print("-" * 30)
         print(f"🎉 終於成功了！已產出: {output_path}")
-        print(f"🔍 預覽內容：\n{clean_rumor_100['text'].iloc[0][:50]}...")
+        print(f"🔍 預覽內容：\n{clean_rumor_1000['text'].iloc[0][:50]}...")
         print("-" * 30)
 
     except Exception as e:
