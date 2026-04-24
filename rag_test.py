@@ -1,12 +1,17 @@
-import chromadb
+iimport chromadb
 import requests
+from chromadb.utils import embedding_functions
 
-# =========================
-# 1. 連接 Chroma 資料庫
-# =========================
+# 必須跟 build_db.py 用一樣的模型
+multilingual_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+    model_name="paraphrase-multilingual-MiniLM-L12-v2"
+)
+
 client = chromadb.PersistentClient(path="./chroma_db")
-collection = client.get_collection(name="fake_news")
-
+collection = client.get_collection(
+    name="fake_news",
+    embedding_function=multilingual_ef
+)
 # =========================
 # 2. 讓使用者輸入訊息
 # =========================
